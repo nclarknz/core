@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "remoteid": "ID for the Heatpump",
+          "apiregion": "Region Code (us,us-e,in,cn,eu,eu-w)",
+          "api_key": "Tuya API Key",
+          "apisecret": "Tuya Secret",
+          "deviceid": "Device ID of the IR Controller",
+          "ip_address": "IP Address of IR Controller",
+          "name": "Name of unit",
+          "userid": "User ID from IOT Link Tuya App in Cloud page"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  }
+}

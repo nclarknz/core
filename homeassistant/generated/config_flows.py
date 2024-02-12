@@ -249,6 +249,8 @@ FLOWS = {
         "ipma",
         "ipp",
         "iqvia",
+        "iraircon",
+        "iraircon3",
         "islamic_prayer_times",
         "iss",
         "isy994",

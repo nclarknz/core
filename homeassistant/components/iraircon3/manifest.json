@@ -1,0 +1,13 @@
+{
+  "domain": "iraircon3",
+  "name": "Heatpump Controller",
+  "codeowners": ["@nclarknz"],
+  "config_flow": true,
+  "dependencies": ["http", "network", "climate", "template"],
+  "documentation": "https://www.home-assistant.io/integrations/iraircon3",
+  "homekit": {},
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": []
+}
