@@ -17,7 +17,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.util import Throttle
 
-from .const import CONF_APIREGION, CONF_APISECRET, CONF_USERID, DOMAIN
+from .const import DOMAIN
 from .IRaircon.cloud_api import TuyaCloudApi
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,13 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.unique_id is None or ".local" in entry.unique_id:
         hass.config_entries.async_update_entry(entry, unique_id=conf[CONF_API_KEY])
 
-    cloud_api, res = await attempt_cloud_connection(
-        hass,
-        conf.get(CONF_API_KEY),
-        conf.get(CONF_APISECRET),
-        conf.get(CONF_APIREGION),
-        conf.get(CONF_USERID),
-    )
+    cloud_api, res = await attempt_cloud_connection(hass, entry.data)
 
     if not cloud_api:
         return False
@@ -65,11 +59,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def attempt_cloud_connection(hass, key, apisecret, apiregion, apiUserID):
+async def attempt_cloud_connection(hass, entrydata):
     """Create device."""
-    cloud_api = TuyaCloudApi(
-        hass, apiregion, key, apisecret, apiUserID, remote_id=None, device_id=None
-    )
+    cloud_api = TuyaCloudApi(hass, entrydata)
 
     res = await cloud_api.async_get_access_token()
     if res != "ok":
@@ -80,7 +72,7 @@ async def attempt_cloud_connection(hass, key, apisecret, apiregion, apiUserID):
     if res != "ok":
         _LOGGER.error("Cloud API get_devices_list failed: %s", res)
         return cloud_api, {"reason": "device_list_failed", "msg": res}
-    _LOGGER.info("Cloud API connection succeeded.")
+    _LOGGER.info("Cloud API connection succeeded")
 
     return cloud_api, {}
 

@@ -3,14 +3,19 @@
     "step": {
       "user": {
         "data": {
-          "remoteid": "ID for the Heatpump",
-          "apiregion": "Region Code (us,us-e,in,cn,eu,eu-w)",
-          "api_key": "Tuya API Key",
-          "apisecret": "Tuya Secret",
-          "deviceid": "Device ID of the IR Controller",
-          "ip_address": "IP Address of IR Controller",
+          "remoteid": "Remote ID",
+          "apiregion": "Region (usually us)",
+          "api_key": "apiKey",
+          "apisecret": "apiSecret",
+          "ip_address": "ipaddr",
+          "deviceid": "device ID",
           "name": "Name of unit",
-          "userid": "User ID from IOT Link Tuya App in Cloud page"
+          "userid": "User ID for tuya cloud connection to smarthome",
+          "max_temperature": "Max Temperature Setting for the heatpump",
+          "min_temperature": "Min Temperature for the heatpump",
+          "target_precision": "target_precision",
+          "temperature_step": "temperature_step",
+          "TemperatureUnit":"Temperature Unit"
         }
       }
     },
@@ -22,5 +27,20 @@
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
-  }
+  },
+  "options": {
+    "step": {
+        "init": {
+            "title": "Heatpump Configuration",
+            "description": "Please select the setup.",
+            "data": {
+                "max_temperature": "Max Temperature Setting for the heatpump",
+                "min_temperature": "Min Temperature for the heatpump",
+                "target_precision": "target_precision",
+                "temperature_step": "temperature_step",
+                "TemperatureUnit":"Temperature Unit"
+            }
+        }
+      }
+    }
 }
