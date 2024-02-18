@@ -78,6 +78,47 @@ class TuyaCloudApi:
         self.mintemp = configdata.get("min_temperature")
         self.maxtemp = configdata.get("max_temperature")
 
+    @property
+    def support_away_mode(self):
+        """Return True if the device support away_mode."""
+        return "en_hol" in self.values
+
+    @property
+    def support_fan_rate(self):
+        """Return True if the device support setting fan_rate."""
+        return "f_rate" in self.values
+
+    @property
+    def support_swing_mode(self):
+        """Return True if the device support setting swing_mode."""
+        return "f_dir" in self.values
+
+    @property
+    def fan_rate(self):
+        """Return list of supported fan rates."""
+        return list(map(str.title, self.TRANSLATIONS.get("f_rate", {}).values()))
+
+    @property
+    def swing_modes(self):
+        """Return list of supported swing modes."""
+        return list(map(str.title, self.TRANSLATIONS.get("f_dir", {}).values()))
+
+    async def set_holiday(self, mode):
+        """Set holiday mode."""
+        raise NotImplementedError
+
+    async def set_advanced_mode(self, mode, value):
+        """Enable or disable advanced modes."""
+        raise NotImplementedError
+
+    async def set_streamer(self, mode):
+        """Enable or disable the streamer."""
+        raise NotImplementedError
+
+    async def set_zone(self, zone_id, key, value):
+        """Set zone status."""
+        raise NotImplementedError
+
     def generate_payload(self, method, timestamp, url, headers, body=None):
         """Generate signed payload for requests."""
         payload = self._client_id + self._access_token + timestamp
@@ -185,16 +226,11 @@ class TuyaCloudApi:
 
         return "ok"
 
-    async def get_StatusObject(self, obj):
-        """Get status of a single object."""
-
-        timestamp = str(int(time.time() * 1000))
-        if (int(timestamp) - int(self.timestamp)) > 1000:
-            await self.async_get_access_token()
-
+    async def async_get_device_functions(self):
+        """Get the accepted commands for the device."""
+        # {{url}}/v1.0/devices/{{device_id}}/functions
         resp = await self.async_make_request(
-            "GET",
-            url=f"/v2.0/infrareds/{self.deviceID}/remotes/{self.remoteID}/ac/status",
+            "GET", url=f"/v1.0/devices/{self.remoteID}/functions"
         )
 
         if not resp.ok:
@@ -206,6 +242,61 @@ class TuyaCloudApi:
             #     "Request failed, reply is %s",
             #     json.dumps(r_json, indent=2, ensure_ascii=False)
             # )
+            return f"Error {r_json['code']}: {r_json['msg']}"
+        devicefunctions = r_json["result"]["functions"]
+        return devicefunctions
+
+    async def get_StatusAll(self):
+        """Get status of a single object."""
+
+        # timestamp = str(int(time.time() * 1000))
+        if (int(time.time() * 1000) - int(self.timestamp)) > 10000:
+            await self.async_get_access_token()
+
+        resp = await self.async_make_request(
+            "GET",
+            url=f"/v2.0/infrareds/{self.deviceID}/remotes/{self.remoteID}/ac/status",
+        )
+
+        if not resp.ok:
+            return "Request failed, status " + str(resp.status)
+
+        r_json = resp.json()
+        if r_json["success"] is not True:
+            _LOGGER.debug(
+                "Request failed, reply is %s",
+                json.dumps(r_json, indent=2, ensure_ascii=False),
+            )
+            return f"Error {r_json['code']}: {r_json['msg']}"
+
+        data = {}
+        data["mode"] = self.TRANSLATIONS["mode"][r_json["result"]["mode"]]
+        data["power"] = r_json["result"]["power"]
+        data["temp"] = r_json["result"]["temp"]
+        data["wind"] = self.TRANSLATIONS["f_rate"][r_json["result"]["wind"]]
+        return data
+
+    async def get_StatusObject(self, obj):
+        """Get status of a single object."""
+
+        # timestamp = str(int(time.time() * 1000))
+        if (int(time.time() * 1000) - int(self.timestamp)) > 10000:
+            await self.async_get_access_token()
+
+        resp = await self.async_make_request(
+            "GET",
+            url=f"/v2.0/infrareds/{self.deviceID}/remotes/{self.remoteID}/ac/status",
+        )
+
+        if not resp.ok:
+            return "Request failed, status " + str(resp.status)
+
+        r_json = resp.json()
+        if r_json["success"] is not True:
+            _LOGGER.debug(
+                "Request failed, reply is %s",
+                json.dumps(r_json, indent=2, ensure_ascii=False),
+            )
             return f"Error {r_json['code']}: {r_json['msg']}"
         result2 = None
         if obj == "power":
@@ -235,7 +326,7 @@ class TuyaCloudApi:
 
     async def turnOn(self):
         """Turn on the unit."""
-        msgsend = {"commands": [{"code": "switch", "value": "True"}]}
+        msgsend = {"commands": [{"code": "PowerOn", "value": "true"}]}
         resp = await self.async_make_request("POST", self.urlcmd, msgsend)
         # self._send_msg(msgsend)
         r_json = resp.json()
@@ -251,7 +342,7 @@ class TuyaCloudApi:
 
     async def turnOff(self):
         """Turn off the unit."""
-        msgsend = {"commands": [{"code": "switch", "value": "False"}]}
+        msgsend = {"commands": [{"code": "PowerOff", "value": "true"}]}
         resp = await self.async_make_request("POST", self.urlcmd, msgsend)
 
         r_json = resp.json()
@@ -271,7 +362,7 @@ class TuyaCloudApi:
             return False
         else:
             data = {}
-            data["code"] = "temp"
+            data["code"] = "T"
             data["value"] = temperature
             cmds = {}
             cmds["commands"] = [data]
@@ -291,13 +382,13 @@ class TuyaCloudApi:
     async def async_set_fan_mode(self, airmode):
         """Change the heatpump mode."""
         if airmode == "low":
-            msgsend = {"commands": [{"code": "fan", "value": "low"}]}
+            msgsend = {"commands": [{"code": "F", "value": "1"}]}
         elif airmode == "mid":
-            msgsend = {"commands": [{"code": "fan", "value": "mid"}]}
+            msgsend = {"commands": [{"code": "F", "value": "2"}]}
         elif airmode == "high":
-            msgsend = {"commands": [{"code": "fan", "value": "high"}]}
+            msgsend = {"commands": [{"code": "F", "value": "3"}]}
         elif airmode == "auto":
-            msgsend = {"commands": [{"code": "fan", "value": "auto"}]}
+            msgsend = {"commands": [{"code": "F", "value": "0"}]}
         else:
             return False
 
@@ -316,15 +407,23 @@ class TuyaCloudApi:
     async def async_set_hvac_mode(self, airmode):
         """Change the heatpump mode."""
         if airmode == "wind_dry":
-            msgsend = {"commands": [{"code": "mode", "value": "wind_dry"}]}
+            msgsend = {"commands": [{"code": "M", "value": "3"}]}
         elif airmode == "cold":
-            msgsend = {"commands": [{"code": "mode", "value": "cold"}]}
+            msgsend = {"commands": [{"code": "M", "value": "0"}]}
         elif airmode == "heat":
-            msgsend = {"commands": [{"code": "mode", "value": "heat"}]}
+            msgsend = {"commands": [{"code": "M", "value": "1"}]}
         elif airmode == "dehumidification":
-            msgsend = {"commands": [{"code": "mode", "value": "dehumidification"}]}
+            msgsend = {"commands": [{"code": "M", "value": "4"}]}
         elif airmode == "auto":
-            msgsend = {"commands": [{"code": "mode", "value": "auto"}]}
+            msgsend = {"commands": [{"code": "M", "value": "2"}]}
+        elif airmode == "off":
+            resp = await self.turnOff()
+            self.hvacmode = airmode
+            return True
+        elif airmode == "on":
+            resp = await self.turnOn()
+            self.hvacmode = airmode
+            return True
         else:
             return False
 

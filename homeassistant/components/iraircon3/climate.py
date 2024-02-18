@@ -132,7 +132,7 @@ HA_STATE_TO_DAIKIN = {
     HVACMode.DRY: "dehumidification",
     HVACMode.COOL: "cold",
     HVACMode.HEAT: "heat",
-    HVACMode.HEAT_COOL: "auto",
+    HVACMode.AUTO: "auto",
     HVACMode.OFF: "off",
 }
 
@@ -141,7 +141,7 @@ DAIKIN_TO_HA_STATE = {
     "dehumidification": HVACMode.DRY,
     "cold": HVACMode.COOL,
     "heat": HVACMode.HEAT,
-    "auto": HVACMode.HEAT_COOL,
+    "auto": HVACMode.AUTO,
     "off": HVACMode.OFF,
 }
 
@@ -200,14 +200,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Daikin climate based on config_entry."""
-    # confApiRegion = entry.data["apiregion"]
-    # confDeviceID = entry.data["deviceid"]
-    # confRemoteID = entry.data["remoteid"]
-    # confUserId = entry.data["userid"]
-    # confApiKey = entry.data["api_key"]
-    # confApiSecret = entry.data["apisecret"]
-    # daikin_api = entry.entry_id
-
     irapi = cloud_api.TuyaCloudApi(hass, entry.data)
 
     await irapi.async_get_access_token()
@@ -256,7 +248,7 @@ class DaikinIRClimate(TemplateEntity, ClimateEntity):
 
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_hvac_modes = list(HA_STATE_TO_DAIKIN)
-        self._attr_fan_mode = None
+        self._attr_fan_mode = FAN_HIGH
         self._attr_fan_modes = list(HA_FANSTATE_TO_DAIKIN)
 
         self._list: dict[str, list[Any]] = {
@@ -282,9 +274,6 @@ class DaikinIRClimate(TemplateEntity, ClimateEntity):
         self._attr_available = True
         self._available = True
         self._unit_of_measurement = hass.config.units.temperature_unit
-        # self._unit_of_measurement = config.data.get(CONF_TEMPUNIT)
-        # self._attr_hvac_modes = config.data[CONF_MODE_LIST]
-        # self._attr_fan_modes = config.data[CONF_FAN_MODE_LIST]
 
         self._current_temp = None
 
@@ -328,6 +317,8 @@ class DaikinIRClimate(TemplateEntity, ClimateEntity):
                     if (daikin_attr := HA_ATTR_TO_DAIKIN.get(attr)) is not None:
                         values[daikin_attr] = HA_STATE_TO_DAIKIN[value]
                         hvacmode = values[daikin_attr]
+                        if self._attr_hvac_mode == "off":
+                            await self._irapi.turnOn()
                         self._attr_hvac_mode = value
                         await self._irapi.async_set_hvac_mode(hvacmode)
                 # fan speed
@@ -415,67 +406,18 @@ class DaikinIRClimate(TemplateEntity, ClimateEntity):
         """Set fan mode."""
         await self._set({ATTR_FAN_MODE: fan_mode})
 
-    # @property
-    # def preset_mode(self) -> str:
-    #     """Return the preset_mode."""
-    #     if (
-    #         self._api.device.represent(HA_ATTR_TO_DAIKIN[ATTR_PRESET_MODE])[1]
-    #         == HA_PRESET_TO_DAIKIN[PRESET_AWAY]
-    #     ):
-    #         return PRESET_AWAY
-    #     if (
-    #         HA_PRESET_TO_DAIKIN[PRESET_BOOST]
-    #         in self._api.device.represent(DAIKIN_ATTR_ADVANCED)[1]
-    #     ):
-    #         return PRESET_BOOST
-    #     if (
-    #         HA_PRESET_TO_DAIKIN[PRESET_ECO]
-    #         in self._api.device.represent(DAIKIN_ATTR_ADVANCED)[1]
-    #     ):
-    #         return PRESET_ECO
-    #     return PRESET_NONE
-
-    # async def async_set_preset_mode(self, preset_mode: str) -> None:
-    #     """Set preset mode."""
-    #     if preset_mode == PRESET_AWAY:
-    #         await self._api.device.set_holiday(ATTR_STATE_ON)
-    #     elif preset_mode == PRESET_BOOST:
-    #         await self._api.device.set_advanced_mode(
-    #             HA_PRESET_TO_DAIKIN[PRESET_BOOST], ATTR_STATE_ON
-    #         )
-    #     elif preset_mode == PRESET_ECO:
-    #         await self._api.device.set_advanced_mode(
-    #             HA_PRESET_TO_DAIKIN[PRESET_ECO], ATTR_STATE_ON
-    #         )
-    #     elif self.preset_mode == PRESET_AWAY:
-    #         await self._api.device.set_holiday(ATTR_STATE_OFF)
-    #     elif self.preset_mode == PRESET_BOOST:
-    #         await self._api.device.set_advanced_mode(
-    #             HA_PRESET_TO_DAIKIN[PRESET_BOOST], ATTR_STATE_OFF
-    #         )
-    #     elif self.preset_mode == PRESET_ECO:
-    #         await self._api.device.set_advanced_mode(
-    #             HA_PRESET_TO_DAIKIN[PRESET_ECO], ATTR_STATE_OFF
-    #         )
-
-    # @property
-    # def preset_modes(self) -> list[str]:
-    #     """List of available preset modes."""
-    #     ret = [PRESET_NONE]
-    #     if self._api.device.support_away_mode:
-    #         ret.append(PRESET_AWAY)
-    #     if self._api.device.support_advanced_modes:
-    #         ret += [PRESET_ECO, PRESET_BOOST]
-    #     return ret
-
     async def async_update(self) -> None:
         """Retrieve latest state."""
-        # await self._irapi.get_StatusObject("power")
-        temp = await self._irapi.get_StatusObject("temperature")
-        self._attr_target_temperature = float(temp)
-        hvacmode = await self._irapi.get_StatusObject("mode")
-        hvacmodeha = DAIKIN_TO_HA_STATE[hvacmode]
-        self._attr_hvac_mode = hvacmodeha
+        temp = await self._irapi.get_StatusAll()
+        self._attr_target_temperature = float(temp["temp"])
+        self._attr_hvac_mode = DAIKIN_TO_HA_STATE[temp["mode"]]
+        self._attr_fan_mode = DAIKIN_TO_HA_FANSTATE[temp["wind"]]
+        powermode = temp["power"]
+        if powermode == "0":
+            await self._irapi.turnOff()
+            self._attr_hvac_mode = HVACMode.OFF
+        elif powermode == "1":
+            await self._irapi.turnOn()
         return True
 
     async def async_turn_on(self) -> None:

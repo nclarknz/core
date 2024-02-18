@@ -124,17 +124,17 @@ class FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Create device."""
 
-        try:
-            host = "Test"
-            # ipaddr = "192.168.1.163"
+        # try:
+        #     host = "Test"
+        #     # ipaddr = "192.168.1.163"
 
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected error creating device")
-            return self.async_show_form(
-                step_id="user",
-                data_schema=self.schema,
-                errors={"base": "unknown"},
-            )
+        # except Exception:  # pylint: disable=broad-except
+        #     _LOGGER.exception("Unexpected error creating device")
+        #     return self.async_show_form(
+        #         step_id="user",
+        #         data_schema=self.schema,
+        #         errors={"base": "unknown"},
+        #     )
 
         return await self._create_entry(userinput)
 

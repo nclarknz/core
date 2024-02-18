@@ -68,10 +68,18 @@ async def attempt_cloud_connection(hass, entrydata):
         _LOGGER.error("Cloud API connection failed: %s", res)
         return cloud_api, {"reason": "authentication_failed", "msg": res}
 
-    res = await cloud_api.async_get_devices_list()
-    if res != "ok":
-        _LOGGER.error("Cloud API get_devices_list failed: %s", res)
-        return cloud_api, {"reason": "device_list_failed", "msg": res}
+    # res = await cloud_api.async_get_devices_list()
+    # if res != "ok":
+    #     _LOGGER.error("Cloud API get_devices_list failed: %s", res)
+    #     return cloud_api, {"reason": "device_list_failed", "msg": res}
+
+    res = await cloud_api.async_get_device_functions()
+    # if res != "ok":
+    #     _LOGGER.error("Cloud API get_device_functions failed: %s", res)
+    #     return cloud_api, {"reason": "get_device_functions", "msg": res}
+    # else:
+    _LOGGER.info("Received following functions from device: %s", res)
+
     _LOGGER.info("Cloud API connection succeeded")
 
     return cloud_api, {}
